@@ -1,240 +1,205 @@
-"""This script nuke all elasticache resources"""
+# -*- coding: utf-8 -*-
+
+"""Module deleting all elasticache resources."""
 
 import logging
-import time
+
 import boto3
-from botocore.exceptions import EndpointConnectionError, ClientError
+
+from botocore.exceptions import ClientError, EndpointConnectionError
 
 
-def nuke_all_elasticache(older_than_seconds):
-    """
-         elasticache function for destroy all elasticache resources
-    """
-    # Convert date in seconds
-    time_delete = time.time() - older_than_seconds
+class NukeElasticache:
+    """Abstract elasticache nuke in a class."""
 
-    # define connection
-    elasticache = boto3.client('elasticache')
-
-    # Test if elasticache resources is present in current aws region
-    try:
-        elasticache.describe_cache_clusters()
-    except EndpointConnectionError:
-        print('elasticache resource is not available in this aws region')
-        return
-
-    # Nuke all elasticachec clusters
-    elasticache_nuke_clusters(time_delete)
-    elasticache_nuke_snapshots(time_delete)
-    elasticache_nuke_subnets()
-    elasticache_nuke_param_groups()
-
-
-def elasticache_nuke_clusters(time_delete):
-    """
-         elasticache function for destroy all elasticache cluster
-    """
-    # define connection
-    elasticache = boto3.client('elasticache')
-
-    # List all elasticache clusters
-    elasticache_cluster_list = elasticache_list_clusters(time_delete)
-
-    # Nuke all elasticache clusters
-    for cluster in elasticache_cluster_list:
+    def __init__(self):
+        """Initialize elasticache nuke."""
+        self.elasticache = boto3.client("elasticache")
 
         try:
-            elasticache.delete_cache_cluster(CacheClusterId=cluster)
-            print("Nuke elasticache cluster {0}".format(cluster))
-        except ClientError as e:
-            error_code = e.response['Error']['Code']
-            if error_code == 'InvalidCacheClusterState':
-                logging.info(
-                    "cache cluster %s is not in available state", cluster)
-            else:
-                logging.error("Unexpected error: %s" % e)
+            self.elasticache.describe_cache_clusters()
+        except EndpointConnectionError:
+            print("Elasticache resource is not available in this aws region")
+            return
 
+    def nuke(self, older_than_seconds):
+        """Elasticache resources deleting function.
 
-def elasticache_nuke_snapshots(time_delete):
-    """
-         elasticache function for destroy all elasticache snapshots
-    """
-    # define connection
-    elasticache = boto3.client('elasticache')
+        Deleting all elasticache resources with
+        a timestamp greater than older_than_seconds.
+        That include:
+          - clusters
+          - snapshots
+          - subnets
+          - param groups
 
-    # List all elasticache snapshots
-    elasticache_snapshot_list = elasticache_list_snapshots(time_delete)
+        :param int older_than_seconds:
+            The timestamp in seconds used from which the aws
+            resource will be deleted
+        """
+        self.nuke_clusters(older_than_seconds)
+        self.nuke_snapshots(older_than_seconds)
+        self.nuke_subnets()
+        self.nuke_param_groups()
 
-    # Nuke all elasticache clusters
-    for snapshot in elasticache_snapshot_list:
+    def nuke_clusters(self, time_delete):
+        """Elasticache cluster deleting function.
 
-        try:
-            elasticache.delete_snapshot(SnapshotName=snapshot)
-            print("Nuke elasticache snapshot {0}".format(snapshot))
-        except ClientError as e:
-            error_code = e.response['Error']['Code']
-            if error_code == 'InvalidSnapshotState':
-                logging.info(
-                    "cache snapshot %s is not in available state", snapshot)
-            else:
-                logging.error("Unexpected error: %s" % e)
+        Deleting elasticache cluster with a timestamp lower than
+        time_delete.
 
+        :param int older_than_seconds:
+            The timestamp in seconds used from which the aws resource
+            will be deleted
+        """
+        for cluster in self.list_clusters(time_delete):
+            try:
+                self.elasticache.delete_cache_cluster(CacheClusterId=cluster)
+                print("Nuke elasticache cluster {0}".format(cluster))
+            except ClientError as e:
+                error_code = e.response["Error"]["Code"]
+                if error_code == "InvalidCacheClusterState":
+                    logging.info(
+                        "cache cluster %s is not in available state", cluster
+                    )
+                else:
+                    logging.error("Unexpected error: %s", e)
 
-def elasticache_nuke_subnets():
-    """
-         elasticache function for destroy all elasticache subnets
-    """
-    # define connection
-    elasticache = boto3.client('elasticache')
+    def nuke_snapshots(self, time_delete):
+        """Elasticache snapshot deleting function.
 
-    # List all elasticache subnets
-    elasticache_subnet_list = elasticache_list_subnets()
+        Deleting elasticache snapshot with a timestamp lower than
+        time_delete.
 
-    # Nuke all elasticache subnets
-    for subnet in elasticache_subnet_list:
+        :param int older_than_seconds:
+            The timestamp in seconds used from which the aws resource
+            will be deleted
+        """
+        for snapshot in self.list_snapshots(time_delete):
+            try:
+                self.elasticache.delete_snapshot(SnapshotName=snapshot)
+                print("Nuke elasticache snapshot {0}".format(snapshot))
+            except ClientError as e:
+                error_code = e.response["Error"]["Code"]
+                if error_code == "InvalidSnapshotState":
+                    logging.info(
+                        "cache snapshot %s is not in available state", snapshot
+                    )
+                else:
+                    logging.error("Unexpected error: %s", e)
 
-        try:
-            elasticache.delete_cache_subnet_group(
-                CacheSubnetGroupName=subnet)
-            print("Nuke elasticache subnet{0}".format(subnet))
-        except ClientError as e:
-            error_code = e.response['Error']['Code']
-            if error_code == 'InvalidCacheSubnetState':
-                logging.info("cache %s is not in available state", subnet)
-            elif error_code == 'InvalidParameterValue':
-                logging.info("cache %s cannot be deleted", subnet)
-            else:
-                logging.error("Unexpected error: %s" % e)
+    def nuke_subnets(self):
+        """Elasticache subnet deleting function.
 
+        Deleting elasticache subnets
+        """
+        for subnet in self.list_subnets():
 
-def elasticache_nuke_param_groups():
-    """
-         elasticache function for destroy all elasticache param groups
-    """
-    # define connection
-    elasticache = boto3.client('elasticache')
+            try:
+                self.elasticache.delete_cache_subnet_group(
+                    CacheSubnetGroupName=subnet
+                )
+                print("Nuke elasticache subnet{0}".format(subnet))
+            except ClientError as e:
+                error_code = e.response["Error"]["Code"]
+                if error_code == "InvalidCacheSubnetState":
+                    logging.info("cache %s is not in available state", subnet)
+                elif error_code == "InvalidParameterValue":
+                    logging.info("cache %s cannot be deleted", subnet)
+                else:
+                    logging.error("Unexpected error: %s", e)
 
-    # List all elasticache cluster parameters
-    elasticache_param_group_list = elasticache_list_param_groups()
+    def nuke_param_groups(self):
+        """Elasticache param group deleting function.
 
-    # Nuke all elasticache parameters
-    for param in elasticache_param_group_list:
+        Deleting elasticache parameter groups
+        """
+        for param in self.list_param_groups():
+            try:
+                self.elasticache.delete_cache_parameter_group(
+                    CacheParameterGroupName=param
+                )
+                print("Nuke elasticache param {0}".format(param))
+            except ClientError as e:
+                error_code = e.response["Error"]["Code"]
+                if error_code == "InvalidCacheParameterGroupState":
+                    logging.info(
+                        "cache param %s is not in available state", param
+                    )
+                elif error_code == "InvalidParameterValue":
+                    logging.info(
+                        "cache %s param group cannot be deleted", param
+                    )
+                else:
+                    logging.error("Unexpected error: %s", e)
 
-        try:
-            elasticache.delete_cache_parameter_group(
-                CacheParameterGroupName=param)
-            print("Nuke elasticache param {0}".format(param))
-        except ClientError as e:
-            error_code = e.response['Error']['Code']
-            if error_code == 'InvalidCacheParameterGroupState':
-                logging.info("cache param %s is not in available state", param)
-            elif error_code == 'InvalidParameterValue':
-                logging.info("cache %s param group cannot be deleted", param)
-            else:
-                logging.error("Unexpected error: %s" % e)
+    def list_clusters(self, time_delete):
+        """Elasticache cluster list function.
 
+        List IDs of all elasticache clusters with a timestamp
+        lower than time_delete.
 
-def elasticache_list_clusters(time_delete):
-    """
-       Aws elasticache list clusters, list name of
-       all elasticache clusters and return it in list.
-    """
+        :param int time_delete:
+            Timestamp in seconds used for filter elasticache clusters
 
-    # define connection
-    elasticache = boto3.client('elasticache')
+        :yield Iterator[str]:
+            Elasticache clusters IDs
+        """
+        paginator = self.elasticache.get_paginator("describe_cache_clusters")
 
-    # Define the connection
-    paginator = elasticache.get_paginator('describe_cache_clusters')
-    page_iterator = paginator.paginate()
+        for page in paginator.paginate():
+            for cluster in page["CacheClusters"]:
+                if cluster["CacheClusterCreateTime"].timestamp() < time_delete:
+                    yield cluster["CacheClusterId"]
 
-    # Initialize elasticache file system list
-    elasticache_cluster_list = []
+    def list_snapshots(self, time_delete):
+        """Elasticache snapshots list function.
 
-    # Retrieve all elasticache file system Id
-    for page in page_iterator:
-        for cluster in page['CacheClusters']:
-            if cluster['CacheClusterCreateTime'].timestamp() < time_delete:
+        List names of all elasticache snapshots with a timestamp
+        lower than time_delete.
 
-                elasticache_cluster = cluster['CacheClusterId']
-                elasticache_cluster_list.insert(0, elasticache_cluster)
+        :param int time_delete:
+            Timestamp in seconds used for filter elasticache snapshots
 
-    return elasticache_cluster_list
+        :yield Iterator[str]:
+            Elasticache snpashots names
+        """
+        paginator = self.elasticache.get_paginator("describe_snapshots")
 
+        for page in paginator.paginate():
+            for snapshot in page["Snapshots"]:
+                date_snap = snapshot["NodeSnapshots"][0]["SnapshotCreateTime"]
+                if date_snap.timestamp() < time_delete:
+                    yield snapshot["SnapshotName"]
 
-def elasticache_list_snapshots(time_delete):
-    """
-       Aws elasticache list snapshots, list name of
-       all elasticache snapshots and return it in list.
-    """
+    def list_subnets(self):
+        """Elasticache subnet list function.
 
-    # define connection
-    elasticache = boto3.client('elasticache')
+        List elasticache subnet group names
 
-    # Define the connection
-    paginator = elasticache.get_paginator('describe_snapshots')
-    page_iterator = paginator.paginate()
+        :yield Iterator[str]:
+            Elasticache subnet group names
+        """
+        paginator = self.elasticache.get_paginator(
+            "describe_cache_subnet_groups"
+        )
 
-    # Initialize elasticache snapshot list
-    elasticache_snapshot_list = []
+        for page in paginator.paginate():
+            for subnet in page["CacheSubnetGroups"]:
+                yield subnet["CacheSubnetGroupName"]
 
-    # Retrieve all elasticache snapshot names
-    for page in page_iterator:
-        for snapshot in page['Snapshots']:
-            if snapshot['NodeSnapshots'][0]['SnapshotCreateTime'].timestamp() < time_delete:
+    def list_param_groups(self):
+        """Elasticache parameters group list function.
 
-                elasticache_snapshot = snapshot['SnapshotName']
-                elasticache_snapshot_list.insert(0, elasticache_snapshot)
+        List elasticache param group names
 
-    return elasticache_snapshot_list
+        :yield Iterator[str]:
+            Elasticache param group names
+        """
+        paginator = self.elasticache.get_paginator(
+            "describe_cache_parameter_groups"
+        )
 
-
-def elasticache_list_subnets():
-    """
-       Aws elasticache list subnets, list name of
-       all elasticache subnets and return it in list.
-    """
-
-    # define connection
-    elasticache = boto3.client('elasticache')
-
-    # Define the connection
-    paginator = elasticache.get_paginator('describe_cache_subnet_groups')
-    page_iterator = paginator.paginate()
-
-    # Initialize elasticache subnet list
-    elasticache_subnet_list = []
-
-    # Retrieve all elasticache subnet names
-    for page in page_iterator:
-        for subnet in page['CacheSubnetGroups']:
-
-            elasticache_subnet = subnet['CacheSubnetGroupName']
-            elasticache_subnet_list.insert(0, elasticache_subnet)
-
-    return elasticache_subnet_list
-
-
-def elasticache_list_param_groups():
-    """
-       Aws elasticache list subnets, list name of
-       all elasticache subnets and return it in list.
-    """
-
-    # define connection
-    elasticache = boto3.client('elasticache')
-
-    # Define the connection
-    paginator = elasticache.get_paginator('describe_cache_parameter_groups')
-    page_iterator = paginator.paginate()
-
-    # Initialize elasticache param group list
-    elasticache_param_group_list = []
-
-    # Retrieve all elasticache param group names
-    for page in page_iterator:
-        for param_group in page['CacheParameterGroups']:
-
-            elasticache_param_group = param_group['CacheParameterGroupName']
-            elasticache_param_group_list.insert(0, elasticache_param_group)
-
-    return elasticache_param_group_list
+        for page in paginator.paginate():
+            for param_group in page["CacheParameterGroups"]:
+                yield param_group["CacheParameterGroupName"]

@@ -1,104 +1,83 @@
-"""This script nuke all elasticbeanstalk resources"""
+# -*- coding: utf-8 -*-
+
+"""Module deleting all aws Elastic Beanstalk resources."""
 
 import logging
-import time
+
 import boto3
-from botocore.exceptions import EndpointConnectionError, ClientError
+
+from botocore.exceptions import ClientError, EndpointConnectionError
 
 
-def nuke_all_elasticbeanstalk(older_than_seconds):
-    """
-         elasticbeanstalk function for nuke all
-         elasticbeanstalk stack
-    """
-    # Convert date in seconds
-    time_delete = time.time() - older_than_seconds
+class NukeElasticbeanstalk:
+    """Initialize elasticbeanstalk nuke."""
 
-    # Define connection
-    elasticbeanstalk = boto3.client('elasticbeanstalk')
+    def __init__(self):
+        """Initialize elasticbeanstalk nuke."""
+        self.elasticbeanstalk = boto3.client("elasticbeanstalk")
 
-    try:
-        elasticbeanstalk.describe_applications()
-    except EndpointConnectionError:
-        print('elasticbeanstalk resource is not available in this aws region')
-        return
+        try:
+            self.elasticbeanstalk.describe_applications()
+        except EndpointConnectionError:
+            print(
+                "elasticbeanstalk resource is not available in this aws region"
+            )
+            return
 
-    # List all elastic beanstalk app
-    elasticbeanstalk_app_list = elasticbeanstalk_list_apps()
+    def nuke(self, older_than_seconds):
+        """Elastic Beanstalk deleting function.
 
-    # Nuke elasticbeanstalk application
-    for app in elasticbeanstalk_app_list:
-        if app['DateCreated'].timestamp() < time_delete:
+        Deleting all Elastic Beanstalk with a timestamp greater than
+        older_than_seconds.
 
-            # Delete elasticbeanstalk app
-            try:
-                elasticbeanstalk.delete_application(
-                    ApplicationName=app,
-                    TerminateEnvByForce=True)
-                print("Nuke elasticbeanstalk application{0}".format(app))
-            except ClientError as e:
-                logging.error("Unexpected error: %s" % e)
+        :param int older_than_seconds:
+            The timestamp in seconds used from which the aws resource
+            will be deleted
+        """
+        for app in self.list_apps(older_than_seconds):
+            if app["DateCreated"].timestamp() < older_than_seconds:
+                try:
+                    self.elasticbeanstalk.delete_application(
+                        ApplicationName=app, TerminateEnvByForce=True
+                    )
+                    print("Nuke elasticbeanstalk application{0}".format(app))
+                except ClientError as e:
+                    logging.error("Unexpected error: %s", e)
 
-    # List all elastic beanstalk env
-    elasticbeanstalk_env_list = elasticbeanstalk_list_envs()
+        for env in self.list_envs(older_than_seconds):
+            if env["DateCreated"].timestamp() < older_than_seconds:
+                try:
+                    self.elasticbeanstalk.terminate_environment(
+                        EnvironmentId=env, ForceTerminate=True
+                    )
+                    print("Nuke elasticbeanstalk environment {0}".format(env))
+                except ClientError as e:
+                    logging.error("Unexpected error: %s", e)
 
-    # Nuke elasticbeanstalk application
-    for env in elasticbeanstalk_env_list:
-        if env['DateCreated'].timestamp() < time_delete:
+    def list_apps(self, time_delete):
+        """Elastic Beanstalk Application list function.
 
-            # Delete elasticbeanstalk env
-            try:
-                elasticbeanstalk.terminate_environment(
-                    EnvironmentId=env,
-                    ForceTerminate=True)
-                print("Nuke elasticbeanstalk environment {0}".format(env))
-            except ClientError as e:
-                logging.error("Unexpected error: %s" % e)
+        List the names of all Elastic Beanstalk Applications.
 
+        :yield Iterator[str]:
+            Elastic Beanstalk Application names
+        """
+        response = self.elasticbeanstalk.describe_applications()
 
-def elasticbeanstalk_list_apps():
-    """
-       Aws elastic beanstalk list application, list name of
-       all application in elastic beanstalk and return it in list.
-    """
+        for app in response["Applications"]:
+            if app["DateCreated"].timestamp() < time_delete:
+                yield app["ApplicationName"]
 
-    # Define the connection
-    elasticbeanstalk = boto3.client('elasticbeanstalk')
-    paginator = elasticbeanstalk.get_paginator('describe_applications')
-    page_iterator = paginator.paginate()
+    def list_envs(self, time_delete):
+        """Elastic Beanstalk Environment list function.
 
-    # Initialize elastic beanstalk app list
-    elasticbeanstalk_app_list = []
+        List the IDs of all Elastic Beanstalk Environments.
 
-    # Retrieve all elastic beanstalk apps
-    for page in page_iterator:
-        for app in page['Applications']:
+        :yield Iterator[str]:
+            Elastic Beanstalk Environment IDs
+        """
+        response = self.elasticbeanstalk.describe_environments()
 
-            elasticbeanstalk_app = app['ApplicationName']
-            elasticbeanstalk_app_list.insert(0, elasticbeanstalk_app)
-
-    return elasticbeanstalk_app_list
-
-
-def elasticbeanstalk_list_envs():
-    """
-       Aws eks elastic beanstalk list environment, list name of
-       all environment in elastic beanstalk and return it in list.
-    """
-
-    # Define the connection
-    elasticbeanstalk = boto3.client('elasticbeanstalk')
-    paginator = elasticbeanstalk.get_paginator('describe_environments')
-    page_iterator = paginator.paginate()
-
-    # Initialize elastic beanstalk env list
-    elasticbeanstalk_env_list = []
-
-    # Retrieve all elastic beanstalk envs
-    for page in page_iterator:
-        for env in page['Environments']:
-
-            elasticbeanstalk_env = env['EnvironmentId']
-            elasticbeanstalk_env_list.insert(0, elasticbeanstalk_env)
-
-    return elasticbeanstalk_env_list
+        for env in response["Environments"]:
+            if env["DateCreated"].timestamp() < time_delete:
+                yield env["EnvironmentId"]

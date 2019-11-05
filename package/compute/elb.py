@@ -1,66 +1,145 @@
-"""This script nuke all autoscaling resources"""
+# -*- coding: utf-8 -*-
+
+"""Module deleting all aws Classic Load Balancer resources."""
 
 import logging
-import time
+
 import boto3
-from botocore.exceptions import EndpointConnectionError, ClientError
+
+from botocore.exceptions import ClientError, EndpointConnectionError
 
 
-def nuke_all_elb(older_than_seconds):
-    """
-        Function for destroy every elb and
-        target groups aws resources
-    """
-    # Convert date in seconds
-    time_delete = time.time() - older_than_seconds
+class NukeElb:
+    """Abstract elb nuke in a class."""
 
-    # Define connection
-    elb = boto3.client('elb')
+    def __init__(self):
+        """Initialize elb nuke."""
+        self.elb = boto3.client("elb")
+        self.elbv2 = boto3.client("elbv2")
 
-    try:
-        elb.describe_load_balancers()
-    except EndpointConnectionError:
-        print('elb resource is not available in this aws region')
-        return
-
-    # List all elb load balaner arn
-    elb_loadbalancer_list = elb_list_loadbalancers(time_delete)
-
-    # Nuke all load balancers
-    for loadbalancer in elb_loadbalancer_list:
-
-        # Delete load balancer
         try:
-            elb.delete_load_balancer(LoadBalancerName=loadbalancer)
-            print("Nuke Load Balancer {0}".format(loadbalancer))
-        except ClientError as e:
-            error_code = e.response['Error']['Code']
-            if error_code == 'OperationNotPermitted':
-                logging.warning("Protected policy enable on %s", loadbalancer)
-            else:
-                logging.error("Unexpected error: %s" % e)
+            self.elb.describe_load_balancers()
+            self.elbv2.describe_load_balancers()
+        except EndpointConnectionError:
+            print("elb resource is not available in this aws region")
+            return
 
+    def nuke(self, older_than_seconds):
+        """Classic Load Balancer deleting function.
 
-def elb_list_loadbalancers(time_delete):
-    """
-       Aws elb list load balancer, list name of
-       all elastic load balancers and return it in list.
-    """
+        Entrypoint function
 
-    # Define the connection
-    elb = boto3.client('elb')
-    paginator = elb.get_paginator('describe_load_balancers')
-    page_iterator = paginator.paginate()
+        :param int older_than_seconds:
+            The timestamp in seconds used from which the aws resource
+            will be deleted
+        """
+        self.nuke_loadbalancers(older_than_seconds)
+        self.nuke_target_groups()
 
-    # Initialize elb loadbalancer list
-    elb_loadbalancer_list = []
+    def nuke_loadbalancers(self, time_delete):
+        """Loadbalancer delete function.
 
-    # Retrieve all elb loadbalancers arn
-    for page in page_iterator:
-        for loadbalancer in page['LoadBalancerDescriptions']:
-            if loadbalancer['CreatedTime'].timestamp() < time_delete:
+        Deleting all elbv and elbv2 with a timestamp greater than
+        older_than_seconds.
 
-                elb_loadbalancer = loadbalancer['LoadBalancerName']
-                elb_loadbalancer_list.insert(0, elb_loadbalancer)
+        :param int older_than_seconds:
+            The timestamp in seconds used from which the aws resource
+            will be deleted
+        """
+        for elb in self.list_elb(time_delete):
+            try:
+                self.elb.delete_load_balancer(LoadBalancerName=elb)
+                print("Nuke Load Balancer {0}".format(elb))
+            except ClientError as e:
+                error_code = e.response["Error"]["Code"]
+                if error_code == "OperationNotPermitted":
+                    logging.warning("Protected policy enable on %s", elb)
+                else:
+                    logging.error("Unexpected error: %s", e)
 
-    return elb_loadbalancer_list
+        for elbv2 in self.list_elbv2(time_delete):
+            try:
+                self.elbv2.delete_load_balancer(LoadBalancerArn=elbv2)
+                print("Nuke Load Balancer {0}".format(elbv2))
+            except ClientError as e:
+                error_code = e.response["Error"]["Code"]
+                if error_code == "OperationNotPermitted":
+                    logging.warning("Protected policy enable on %s", elbv2)
+                else:
+                    logging.error("Unexpected error: %s", e)
+
+    def nuke_target_groups(self):
+        """Elbv2 Target group delete function.
+
+        Deleteing all elbv2 target groups
+        """
+        elbv2 = boto3.client("elbv2")
+
+        for target_group in self.list_target_groups():
+            try:
+                elbv2.delete_target_group(TargetGroupArn=target_group)
+                print("Nuke Target Group {0}".format(target_group))
+            except ClientError as e:
+                error_code = e.response["Error"]["Code"]
+                if error_code == "ResourceInUse":
+                    logging.warning(
+                        "%s is use by listener or rule", target_group
+                    )
+                else:
+                    logging.error("Unexpected error: %s", e)
+
+    def list_elb(self, time_delete):
+        """Elastic Load Balancer list function.
+
+        List the names of all Elastic Load Balancer with
+        a timestamp lower than time_delete.
+
+        :param int time_delete:
+            Timestamp in seconds used for filter Elastic Load Balancer
+
+        :yield Iterator[str]:
+            Load Balancer names
+        """
+        paginator = self.elb.get_paginator("describe_load_balancers")
+
+        for page in paginator.paginate():
+            for loadbalancer in page["LoadBalancerDescriptions"]:
+                if loadbalancer["CreatedTime"].timestamp() < time_delete:
+                    yield loadbalancer["LoadBalancerName"]
+
+    def list_elbv2(self, time_delete):
+        """Elastic Load Balancer v2 list function.
+
+        List ARN of all Elastic Load Balancer v2 with
+        a timestamp lower than time_delete.
+
+        :param int time_delete:
+            Timestamp in seconds used for filter elbv2
+
+        :yield Iterator[str]:
+            Elbv2 ARN
+        """
+        paginator = self.elbv2.get_paginator("describe_load_balancers")
+
+        for page in paginator.paginate():
+            for lb in page["LoadBalancers"]:
+                if lb["CreatedTime"].timestamp() < time_delete:
+                    yield lb["LoadBalancerArn"]
+
+    def list_target_groups(self):
+        """Elastic Load Balancer Target Group list function.
+
+        List ARN of all elbv2 Target Group with
+        a timestamp lower than time_delete.
+
+        :param int time_delete:
+            Timestamp in seconds used for filter elbv2 Target Groups
+
+        :yield Iterator[str]:
+            Elbv2 ARN
+        """
+        paginator = self.elbv2.get_paginator("describe_target_groups")
+
+        for page in paginator.paginate():
+            for targetgroup in page["TargetGroups"]:
+                yield targetgroup["TargetGroupArn"]

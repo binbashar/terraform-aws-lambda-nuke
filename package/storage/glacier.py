@@ -1,61 +1,62 @@
-"""This script nuke all glacier resources"""
+# -*- coding: utf-8 -*-
 
+"""Module deleting all aws Glacier resources."""
+
+import datetime
 import logging
-import time
+
 import boto3
-from botocore.exceptions import EndpointConnectionError, ClientError
+
+from botocore.exceptions import ClientError, EndpointConnectionError
 
 
-def nuke_all_glacier(older_than_seconds):
-    """
-         glacier function for destroy all kubernetes vaults
-    """
-    # Convert date in seconds
-    time_delete = time.time() - older_than_seconds
+class NukeGlacier:
+    """Abstract glacier nuke in a class."""
 
-    # Define connection
-    glacier = boto3.client('glacier')
+    def __init__(self):
+        """Initialize glacier nuke."""
+        self.glacier = boto3.client("glacier")
 
-    try:
-        glacier.list_vaults()
-    except EndpointConnectionError:
-        print('glacier resource is not available in this aws region')
-        return
-
-    # List all glacier vault
-    glacier_vault_list = glacier_list_vaults(time_delete)
-
-    # Nuke all glacier vault
-    for vault in glacier_vault_list:
-
-        # Delete glacier vault
         try:
-            glacier.delete_vault(vaultName=vault)
-            print("Nuke glacier vault {0}".format(vault))
-        except ClientError as e:
-            logging.error("Unexpected error: %s" % e)
+            self.glacier.list_vaults()
+        except EndpointConnectionError:
+            print("Glacier resource is not available in this aws region")
+            return
 
+    def nuke(self, older_than_seconds):
+        """Glacier deleting function.
 
-def glacier_list_vaults(time_delete):
-    """
-       Aws glacier container service, list name of
-       all glacier vault and return it in list.
-    """
+        Deleting all Glacier with a timestamp greater than older_than_seconds.
 
-    # Define the connection
-    glacier = boto3.client('glacier')
-    paginator = glacier.get_paginator('list_vaults')
-    page_iterator = paginator.paginate()
+        :param int older_than_seconds:
+            The timestamp in seconds used from which the aws
+            resource will be deleted
+        """
+        for vault in self.list_vaults(older_than_seconds):
+            try:
+                self.glacier.delete_vault(vaultName=vault)
+                print("Nuke glacier vault {0}".format(vault))
+            except ClientError as e:
+                logging.error("Unexpected error: %s", e)
 
-    # Initialize glacier vault list
-    glacier_vault_list = []
+    def list_vaults(self, time_delete):
+        """Glacier vault list function.
 
-    # Retrieve all glacier vault
-    for page in page_iterator:
-        for vault in page['VaultList']:
-            if vault['CreationDate'].timestamp() < time_delete:
+        List the names of all Glacier vaults with a timestamp lower
+        than time_delete.
 
-                glacier_vault = vault['VaultName']
-                glacier_vault_list.insert(0, glacier_vault)
+        :param int time_delete:
+            Timestamp in seconds used for filter Glacier vaults
 
-    return glacier_vault_list
+        :yield Iterator[str]:
+            Glacier vaults names
+        """
+        paginator = self.glacier.get_paginator("list_vaults")
+
+        for page in paginator.paginate():
+            for vault in page["VaultList"]:
+                creation_date = datetime.datetime.strptime(
+                    vault["CreationDate"], "%Y-%m-%dT%H:%M:%S.%fZ"
+                )
+                if creation_date.timestamp() < time_delete:
+                    yield vault["VaultName"]

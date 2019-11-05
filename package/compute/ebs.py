@@ -1,103 +1,95 @@
-"""This script nuke all ebs resources"""
+# -*- coding: utf-8 -*-
+
+"""Module deleting all aws ebs volume and dlm policie resources."""
 
 import logging
-import time
+
 import boto3
-from botocore.exceptions import ClientError
+
+from botocore.exceptions import ClientError, EndpointConnectionError
 
 
-def nuke_all_ebs(older_than_seconds):
-    """
-         ebs function for destroy all snapshots,
-         volumes and lifecycle manager
-    """
-    # Convert date in seconds
-    time_delete = time.time() - older_than_seconds
+class NukeEbs:
+    """Abstract ebs nuke in a class."""
 
-    # Define connection
-    ec2 = boto3.client('ec2')
-    dlm = boto3.client('dlm')
+    def __init__(self):
+        """Initialize ebs nuke."""
+        self.ec2 = boto3.client("ec2")
+        self.dlm = boto3.client("dlm")
 
-    # List all ebs volumes
-    ebs_volume_list = ebs_list_volumes(time_delete)
-
-    # Nuke all volumes
-    for volume in ebs_volume_list:
-
-        # Nuke all ebs volume
         try:
-            ec2.delete_volume(VolumeId=volume)
-            print("Nuke EBS Volume {0}".format(volume))
-        except ClientError as e:
-            error_code = e.response['Error']['Code']
-            if error_code == 'VolumeInUse':
-                logging.info("volume %s is already used", volume)
-            elif error_code == 'InvalidVolume':
-                logging.info("volume %s has already been deleted", volume)
-            else:
-                logging.error("Unexpected error: %s" % e)
+            self.dlm.get_lifecycle_policies()
+        except EndpointConnectionError:
+            print("Dlm resource is not available in this aws region")
+            return
 
-    # List all dlm policies
-    dlm_policy_list = dlm_list_policy(time_delete)
+    def nuke(self, older_than_seconds):
+        """Ebs and dlm policies deleting function.
 
-    # Nuke all ebs lifecycle manager
-    for policy in dlm_policy_list:
+        Deleting all ebs volumes and dlm policy resources with
+        a timestamp greater than older_than_seconds.
 
-        # Nuke all dlm lifecycle policy
-        try:
-            dlm.delete_lifecycle_policy(PolicyId=policy)
-            print("Nuke EBS Lifecycle Policy {0}".format(policy))
-        except ClientError as e:
-            logging.error("Unexpected error: %s" % e)
+        :param int older_than_seconds:
+            The timestamp in seconds used from which the aws resource
+            will be deleted
+        """
+        for volume in self.list_ebs(older_than_seconds):
+            try:
+                self.ec2.delete_volume(VolumeId=volume)
+                print("Nuke EBS Volume {0}".format(volume))
+            except ClientError as e:
+                error_code = e.response["Error"]["Code"]
+                if error_code == "VolumeInUse":
+                    logging.info("volume %s is already used", volume)
+                elif error_code == "InvalidVolume":
+                    logging.info("volume %s has already been deleted", volume)
+                else:
+                    logging.error("Unexpected error: %s", e)
 
+        # Deletes snpashot lifecyle policy
+        for policy in self.list_policy(older_than_seconds):
+            try:
+                self.dlm.delete_lifecycle_policy(PolicyId=policy)
+                print("Nuke EBS Lifecycle Policy {0}".format(policy))
+            except ClientError as e:
+                logging.error("Unexpected error: %s", e)
 
-def ebs_list_volumes(time_delete):
-    """
-       Aws ebs list function, list name of
-       all ebs volumes and return it in list.
-    """
+    def list_ebs(self, time_delete):
+        """Ebs volume list function.
 
-    # Define connection
-    ec2 = boto3.client('ec2')
+        List the IDs of all ebs volumes with a timestamp
+        lower than time_delete.
 
-    # Paginator volume list
-    paginator = ec2.get_paginator('describe_volumes')
-    page_iterator = paginator.paginate()
+        :param int time_delete:
+            Timestamp in seconds used for filter ebs volumes
 
-    # Initialize ebs volume list
-    ebs_volumes_list = []
+        :yield Iterator[str]:
+            Ebs volumes IDs
+        """
+        paginator = self.ec2.get_paginator("describe_volumes")
 
-    # Retrieve all volume ID in available state
-    for page in page_iterator:
-        for volume in page['Volumes']:
-            if volume['CreateTime'].timestamp() < time_delete:
+        for page in paginator.paginate():
+            for volume in page["Volumes"]:
+                if volume["CreateTime"].timestamp() < time_delete:
+                    yield volume["VolumeId"]
 
-                # Retrieve and add in list ebs volume ID
-                ebs_volume = volume['VolumeId']
-                ebs_volumes_list.insert(0, ebs_volume)
+    def list_policy(self, time_delete):
+        """Data Lifecycle Policies list function.
 
-    return ebs_volumes_list
+        Returns the IDs of all Data Lifecycle Policies with
+        a timestamp lower than time_delete.
 
+        :param int time_delete:
+            Timestamp in seconds used for filter Data Lifecycle policies
 
-def dlm_list_policy(time_delete):
-    """
-       Aws dlm list function, list name of
-       all data lifecycle manager and return it in list.
-    """
+        :yield Iterator[str]:
+            Data Lifecycle policies IDs
+        """
+        response = self.dlm.get_lifecycle_policies()
 
-    # Define connection
-    dlm = boto3.client('dlm')
-    response = dlm.get_lifecycle_policies()
-
-    # Initialize data lifecycle manager list
-    dlm_policy_list = []
-
-    # Retrieve dlm policies
-    for policy in response['Policies']:
-        detailed = dlm.get_lifecycle_policy(PolicyId=policy['PolicyId'])
-        if detailed['Policy']['DateCreated'].timestamp() < time_delete:
-
-            dlm_policy = policy['PolicyId']
-            dlm_policy_list.insert(0, dlm_policy)
-
-    return dlm_policy_list
+        for policy in response["Policies"]:
+            detailed = self.dlm.get_lifecycle_policy(
+                PolicyId=policy["PolicyId"]
+            )
+            if detailed["Policy"]["DateCreated"].timestamp() < time_delete:
+                yield policy["PolicyId"]

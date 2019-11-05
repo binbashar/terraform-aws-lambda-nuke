@@ -9,6 +9,12 @@ Terraform module which create lambda which nuke all resources on aws account
 
 This role was developed using python lib boto3 1.9.46 Backwards compatibility is not guaranteed.
 
+## Terraform versions
+
+For Terraform 0.12 use version v2.* of this module.
+
+If you are using Terraform 0.11 you can use versions v1.*.
+
 ## Features
 
 *   Aws lambda runtine Python 3.6
@@ -46,6 +52,9 @@ This role was developed using python lib boto3 1.9.46 Backwards compatibility is
     -   network acl
     -   vpc endpoint
     -   eip
+    Governance resources nuke:
+    -   cloudwatch dashboard
+    -   cloudwatch alarm
 
 ## Caveats
 This following resources are not supported because creation timestamp are not present:
@@ -81,6 +90,7 @@ module "nuke_everything_older_than_7d" {
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|----------|
 | name | Define name to use for lambda function, cloudwatch event and iam role | string | n/a | yes |
+| custom_iam_role_arn | Custom IAM role arn for the scheduling lambda | string | null | no |
 | cloudwatch_schedule_expression | The scheduling expression | string | `"cron(0 22 ? * MON-FRI *)"` | yes |
 | exclude_resources | Define the resources that will be not destroyed | string |  | no |
 | older_than | Only destroy resources that were created before a certain period | string | 0d | no |

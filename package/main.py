@@ -1,94 +1,79 @@
-"""Main entrypoint function for destroy all aws resources"""
+# -*- coding: utf-8 -*-
 
+"""Main entrypoint function for destroy all aws resources."""
 import os
+
+from compute.autoscaling import NukeAutoscaling
+from compute.ebs import NukeEbs
+from compute.ec2 import NukeEc2
+from compute.ecr import NukeEcr
+from compute.eks import NukeEks
+from compute.elasticbeanstalk import NukeElasticbeanstalk
+from compute.elb import NukeElb
+from compute.key_pair import NukeKeypair
+from compute.spot import NukeSpot
+
+from database.dynamodb import NukeDynamodb
+from database.elasticache import NukeElasticache
+from database.neptune import NukeNeptune
+from database.rds import NukeRds
+from database.redshift import NukeRedshift
+
+from governance.cloudwatch import NukeCloudwatch
+
+from network.eip import NukeEip
+from network.endpoint import NukeEndpoint
+from network.security import NukeNetworksecurity
+
+from storage.efs import NukeEfs
+from storage.glacier import NukeGlacier
+from storage.s3 import NukeS3
+
 import timeparse
-
-from compute.ec2 import nuke_all_ec2
-from compute.spot import nuke_all_spot
-from compute.autoscaling import nuke_all_autoscaling
-from compute.elb import nuke_all_elb
-from compute.elbv2 import nuke_all_elbv2
-from compute.ebs import nuke_all_ebs
-from compute.key_pair import nuke_all_key_pair
-from compute.ecr import nuke_all_ecr
-from compute.eks import nuke_all_eks
-from storage.s3 import nuke_all_s3
-from storage.efs import nuke_all_efs
-from storage.glacier import nuke_all_glacier
-from database.rds import nuke_all_rds
-from database.dynamodb import nuke_all_dynamodb
-from database.elasticache import nuke_all_elasticache
-from database.neptune import nuke_all_neptune
-from database.redshift import nuke_all_redshift
-from network.security import nuke_all_network_security
-from network.endpoint import nuke_all_endpoint
-from network.eip import nuke_all_eip
-
-
-exclude_resources = os.getenv('EXCLUDE_RESOURCES', 'none')
-older_than = os.getenv('OLDER_THAN', 'none')
+import time
 
 
 def lambda_handler(event, context):
-    """ Main function entrypoint for lambda """
+    """Main function entrypoint for lambda."""
+    exclude_resources = os.getenv("EXCLUDE_RESOURCES")
+    # Older than date
+    older_than = os.getenv("OLDER_THAN")
+    # Convert older_than date to seconds
+    older_than_seconds = time.time() - timeparse.timeparse(older_than)
 
-    # Convert older_than variable to seconds
-    older_than_seconds = timeparse.timeparse(older_than)
+    _strategy = {
+        "autoscaling": NukeAutoscaling,
+        "ebs": NukeEbs,
+        "ec2": NukeEc2,
+        "ecr": NukeEcr,
+        "eks": NukeEks,
+        "elasticbeanstalk": NukeElasticbeanstalk,
+        "elb": NukeElb,
+        "spot": NukeSpot,
+        "dynamodb": NukeDynamodb,
+        "elasticache": NukeElasticache,
+        "neptune": NukeNeptune,
+        "rds": NukeRds,
+        "redshift": NukeRedshift,
+        "cloudwatch": NukeCloudwatch,
+        "endpoint": NukeEndpoint,
+        "efs": NukeEfs,
+        "glacier": NukeGlacier,
+        "s3": NukeS3,
+    }
 
-    if "endpoint" not in exclude_resources:
-        nuke_all_endpoint(older_than_seconds)
+    _strategy_with_no_date = {
+        "eip": NukeEip,
+        "key_pair": NukeKeypair,
+        "network_security": NukeNetworksecurity,
+    }
 
-    if "ec2" not in exclude_resources:
-        nuke_all_ec2(older_than_seconds)
+    for key, value in _strategy.items():
+        if key not in exclude_resources:
+            strategy = value()
+            strategy.nuke(older_than_seconds)
 
-    if "spot" not in exclude_resources:
-        nuke_all_spot(older_than_seconds)
-
-    if "autoscaling" not in exclude_resources:
-        nuke_all_autoscaling(older_than_seconds)
-
-    if "elb" not in exclude_resources:
-        nuke_all_elb(older_than_seconds)
-        nuke_all_elbv2(older_than_seconds)
-
-    if "key_pair" not in exclude_resources:
-        nuke_all_key_pair()
-
-    if "ecr" not in exclude_resources:
-        nuke_all_ecr(older_than_seconds)
-
-    if "eks" not in exclude_resources:
-        nuke_all_eks(older_than_seconds)
-
-    if "s3" not in exclude_resources:
-        nuke_all_s3(older_than_seconds)
-
-    if "efs" not in exclude_resources:
-        nuke_all_efs(older_than_seconds)
-
-    if "glacier" not in exclude_resources:
-        nuke_all_glacier(older_than_seconds)
-
-    if "rds" not in exclude_resources:
-        nuke_all_rds(older_than_seconds)
-
-    if "dynamodb" not in exclude_resources:
-        nuke_all_dynamodb(older_than_seconds)
-
-    if "elasticache" not in exclude_resources:
-        nuke_all_elasticache(older_than_seconds)
-
-    if "neptune" not in exclude_resources:
-        nuke_all_neptune(older_than_seconds)
-
-    if "redshift" not in exclude_resources:
-        nuke_all_redshift(older_than_seconds)
-
-    if "ebs" not in exclude_resources:
-        nuke_all_ebs(older_than_seconds)
-
-    if "network_security" not in exclude_resources:
-        nuke_all_network_security()
-
-    if "eip" not in exclude_resources:
-        nuke_all_eip()
+    for key, value in _strategy_with_no_date.items():
+        if key not in exclude_resources:
+            strategy = value()
+            strategy.nuke()

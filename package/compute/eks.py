@@ -1,60 +1,59 @@
-"""This script nuke all eks resources"""
+# -*- coding: utf-8 -*-
+
+"""Module deleting all aws EKS cluster resources."""
 
 import logging
-import time
+
 import boto3
-from botocore.exceptions import EndpointConnectionError, ClientError
+
+from botocore.exceptions import ClientError, EndpointConnectionError
 
 
-def nuke_all_eks(older_than_seconds):
-    """
-         eks function for destroy all kubernetes clusters
-    """
-    # Convert date in seconds
-    time_delete = time.time() - older_than_seconds
+class NukeEks:
+    """Abstract eks nuke in a class."""
 
-    # Define connection
-    eks = boto3.client('eks')
+    def __init__(self):
+        """Initialize eks nuke."""
+        self.eks = boto3.client("eks")
 
-    try:
-        eks.list_clusters()
-    except EndpointConnectionError:
-        print('eks resource is not available in this aws region')
-        return
-
-    # List all eks cluster
-    eks_cluster_list = eks_list_clusters(time_delete)
-
-    # Nuke all eks cluster
-    for cluster in eks_cluster_list:
-
-        # Delete eks cluster
         try:
-            eks.delete_cluster(name=cluster)
-            print("Nuke EKS Cluster{0}".format(cluster))
-        except ClientError as e:
-            logging.error("Unexpected error: %s" % e)
+            self.eks.list_clusters()
+        except EndpointConnectionError:
+            print("eks resource is not available in this aws region")
+            return
 
+    def nuke(self, older_than_seconds):
+        """EKS cluster deleting function.
 
-def eks_list_clusters(time_delete):
-    """
-       Aws eks container service, list name of
-       all eks cluster container and return it in list.
-    """
+        Deleting all EKS clusters with a timestamp greater than
+        older_than_seconds.
 
-    # Define the connection
-    eks = boto3.client('eks')
-    response = eks.list_clusters()
+        :param int older_than_seconds:
+            The timestamp in seconds used from which the aws
+            resource will be deleted
+        """
+        for cluster in self.list_clusters(older_than_seconds):
+            try:
+                self.eks.delete_cluster(name=cluster)
+                print("Nuke EKS Cluster{0}".format(cluster))
+            except ClientError as e:
+                logging.error("Unexpected error: %s", e)
 
-    # Initialize eks cluster list
-    eks_cluster_list = []
+    def list_clusters(self, time_delete):
+        """EKS cluster list function.
 
-    # Retrieve all eks cluster
-    for kube in response['clusters']:
-        k8s = eks.describe_cluster(name=kube)
-        if k8s['cluster']['createdAt'].timestamp() < time_delete:
+        List the names of all EKS clusters with a timestamp lower than
+        time_delete.
 
-            eks_cluster = kube
-            eks_cluster_list.insert(0, eks_cluster)
+        :param int time_delete:
+            Timestamp in seconds used for filter EKS clusters
 
-    return eks_cluster_list
+        :yield Iterator[str]:
+            EKS cluster names
+        """
+        response = self.eks.list_clusters()
+
+        for kube in response["clusters"]:
+            k8s = self.eks.describe_cluster(name=kube)
+            if k8s["cluster"]["createdAt"].timestamp() < time_delete:
+                yield kube

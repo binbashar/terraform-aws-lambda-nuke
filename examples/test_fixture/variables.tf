@@ -13,8 +13,14 @@ variable "name" {
   default     = "everything"
 }
 
+variable "custom_iam_role_arn" {
+  description = "Custom IAM role arn for the scheduling lambda"
+  type        = string
+  default     = null
+}
+
 variable "exclude_resources" {
-  type        = "string"
+  type        = string
   description = "Define the resources that will not be destroyed"
   default     = "key_pair"
 }
@@ -23,3 +29,4 @@ variable "older_than" {
   description = "Only destroy resources that were created before a certain period"
   default     = "0d"
 }
+

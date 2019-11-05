@@ -1,48 +1,42 @@
-"""This script nuke all key pairs"""
+# -*- coding: utf-8 -*-
+
+"""Module deleting all keypairs."""
 
 import logging
+
 import boto3
+
 from botocore.exceptions import ClientError
 
 
-def nuke_all_key_pair():
-    """
-         ec2 function for nuke all key pairs
-    """
-    # Define connection
-    ec2 = boto3.client('ec2')
+class NukeKeypair:
+    """Abstract key pair nuke in a class."""
 
-    # List all ec2 keypair
-    ec2_keypair_list = ec2_list_keypair()
+    def __init__(self):
+        """Initialize key pair nuke."""
+        self.ec2 = boto3.client("ec2")
 
-    # Nuke all ec2 keypairs
-    for keypair in ec2_keypair_list:
+    def nuke(self):
+        """Keypair deleting function.
 
-        # Delete ec2 key pair
-        try:
-            ec2.delete_key_pair(KeyName=keypair)
-            print("Nuke Key Pair {0}".format(keypair))
-        except ClientError as e:
-            logging.error("Unexpected error: %s" % e)
+        Deleting all Keypair
+        """
+        for keypair in self.list_keypair():
+            try:
+                self.ec2.delete_key_pair(KeyName=keypair)
+                print("Nuke Key Pair {0}".format(keypair))
+            except ClientError as e:
+                logging.error("Unexpected error: %s", e)
 
+    def list_keypair(self):
+        """Keypair list function.
 
-def ec2_list_keypair():
-    """
-       Aws ec2 list keypair, list name of
-       all keypairs and return it in list.
-    """
+         List all keypair names
 
-    # Define the connection
-    ec2 = boto3.client('ec2')
-    response = ec2.describe_key_pairs()
+        :yield Iterator[str]:
+            Key pair name
+        """
+        response = self.ec2.describe_key_pairs()
 
-    # Initialize ec2 keypair list
-    ec2_keypair_list = []
-
-    # Retrieve all ec2 keypairs
-    for keypair in response['KeyPairs']:
-
-        ec2_keypair = keypair['KeyName']
-        ec2_keypair_list.insert(0, ec2_keypair)
-
-    return ec2_keypair_list
+        for keypair in response["KeyPairs"]:
+            yield keypair["KeyName"]

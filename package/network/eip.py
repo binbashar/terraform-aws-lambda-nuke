@@ -1,55 +1,48 @@
-"""This script nuke all eip resources"""
+# -*- coding: utf-8 -*-
+
+"""Module deleting all aws eip."""
 
 import logging
+
 import boto3
-from botocore.exceptions import EndpointConnectionError, ClientError
+
+from botocore.exceptions import ClientError, EndpointConnectionError
 
 
-def nuke_all_eip():
-    """
-         ec2 function for destroy all elastic
-    """
-    # define connection
-    ec2 = boto3.client('ec2')
+class NukeEip:
+    """Abstract eip nuke in a class."""
 
-    # Test if Elastic ip services is present in current aws region
-    try:
-        ec2.describe_addresses()
-    except EndpointConnectionError:
-        print('ec2 resource is not available in this aws region')
-        return
+    def __init__(self):
+        """Initialize eip nuke."""
+        self.ec2 = boto3.client("ec2")
 
-    # List all ec2 elastic ip
-    ec2_eip_list = ec2_list_eips()
-
-    # Nuke all ec2 elastic ip
-    for eip in ec2_eip_list:
-
-        # Delete elastic ip
         try:
-            ec2.release_address(AllocationId=eip)
-            print("Nuke elastic ip {0}".format(eip))
-        except ClientError as e:
-            logging.error("Unexpected error: %s" % e)
+            self.ec2.describe_addresses()
+        except EndpointConnectionError:
+            print("Eip resource is not available in this aws region")
+            return
 
+    def nuke(self):
+        """Eip deleting function.
 
-def ec2_list_eips():
-    """
-       Aws ec2 list elastic ips, list name of
-       all network elastic ip and return it in list.
-    """
+        Delete all eip
+        """
+        for eip in self.list_eips():
+            try:
+                self.ec2.release_address(AllocationId=eip)
+                print("Nuke elastic ip {0}".format(eip))
+            except ClientError as e:
+                logging.error("Unexpected error: %s", e)
 
-    # define connection
-    ec2 = boto3.client('ec2')
-    response = ec2.describe_addresses()
+    def list_eips(self):
+        """Eip list function.
 
-    # Initialize ec2 elastic ip list
-    ec2_eip_list = []
+        List all eip Id
 
-    # Retrieve all ec2 elastic ip Id
-    for eip in response['Addresses']:
+        :yield Iterator[str]:
+            Eip Id
+        """
+        response = self.ec2.describe_addresses()
 
-        ec2_eip = eip['AllocationId']
-        ec2_eip_list.insert(0, ec2_eip)
-
-    return ec2_eip_list
+        for eip in response["Addresses"]:
+            yield eip["AllocationId"]

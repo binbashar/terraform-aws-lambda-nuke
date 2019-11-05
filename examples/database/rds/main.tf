@@ -1,10 +1,12 @@
 # Get all availability zones
-data "aws_availability_zones" "available" {}
+data "aws_availability_zones" "available" {
+  state = "available"
+}
 
 # Create rds aurora cluster
 resource "aws_rds_cluster" "aurora_nuke" {
   cluster_identifier  = "aurora-cluster-nuke"
-  availability_zones  = ["data.aws_availability_zones.availability.names"]
+  availability_zones  = data.aws_availability_zones.available.names
   database_name       = "auroranuke"
   master_username     = "foo"
   master_password     = "barbut8chars"
@@ -13,7 +15,7 @@ resource "aws_rds_cluster" "aurora_nuke" {
 
 resource "aws_rds_cluster_instance" "aurora_nuke" {
   identifier         = "aurora-instance-nuke"
-  cluster_identifier = "${aws_rds_cluster.aurora_nuke.id}"
+  cluster_identifier = aws_rds_cluster.aurora_nuke.id
   instance_class     = "db.t2.small"
 }
 
@@ -54,3 +56,4 @@ module "nuke-everything" {
   exclude_resources              = ""
   older_than                     = "0d"
 }
+
