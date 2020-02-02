@@ -12,10 +12,14 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 class NukeElb:
     """Abstract elb nuke in a class."""
 
-    def __init__(self):
+    def __init__(self, region_name=None):
         """Initialize elb nuke."""
-        self.elb = boto3.client("elb")
-        self.elbv2 = boto3.client("elbv2")
+        if region_name:
+            self.elb = boto3.client("elb", region_name=region_name)
+            self.elbv2 = boto3.client("elbv2", region_name=region_name)
+        else:
+            self.elb = boto3.client("elb")
+            self.elbv2 = boto3.client("elbv2")
 
         try:
             self.elb.describe_load_balancers()
@@ -25,7 +29,7 @@ class NukeElb:
             return
 
     def nuke(self, older_than_seconds):
-        """Classic Load Balancer deleting function.
+        """Main nuke entrypoint function for elb and elbv2.
 
         Entrypoint function
 
@@ -71,13 +75,11 @@ class NukeElb:
     def nuke_target_groups(self):
         """Elbv2 Target group delete function.
 
-        Deleteing all elbv2 target groups
+        Deleting all elbv2 target groups
         """
-        elbv2 = boto3.client("elbv2")
-
         for target_group in self.list_target_groups():
             try:
-                elbv2.delete_target_group(TargetGroupArn=target_group)
+                self.elbv2.delete_target_group(TargetGroupArn=target_group)
                 print("Nuke Target Group {0}".format(target_group))
             except ClientError as e:
                 error_code = e.response["Error"]["Code"]

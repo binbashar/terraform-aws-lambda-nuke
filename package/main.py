@@ -4,6 +4,7 @@
 import os
 
 from compute.autoscaling import NukeAutoscaling
+from compute.dlm import NukeDlm
 from compute.ebs import NukeEbs
 from compute.ec2 import NukeEc2
 from compute.ecr import NukeEcr
@@ -15,7 +16,6 @@ from compute.spot import NukeSpot
 
 from database.dynamodb import NukeDynamodb
 from database.elasticache import NukeElasticache
-from database.neptune import NukeNeptune
 from database.rds import NukeRds
 from database.redshift import NukeRedshift
 
@@ -35,14 +35,17 @@ import time
 
 def lambda_handler(event, context):
     """Main function entrypoint for lambda."""
-    exclude_resources = os.getenv("EXCLUDE_RESOURCES")
+    exclude_resources = os.getenv("EXCLUDE_RESOURCES", "no_value")
     # Older than date
     older_than = os.getenv("OLDER_THAN")
     # Convert older_than date to seconds
     older_than_seconds = time.time() - timeparse.timeparse(older_than)
 
+    aws_regions = os.getenv("AWS_REGIONS").replace(" ", "").split(",")
+
     _strategy = {
         "autoscaling": NukeAutoscaling,
+        "dlm": NukeDlm,
         "ebs": NukeEbs,
         "ec2": NukeEc2,
         "ecr": NukeEcr,
@@ -52,7 +55,6 @@ def lambda_handler(event, context):
         "spot": NukeSpot,
         "dynamodb": NukeDynamodb,
         "elasticache": NukeElasticache,
-        "neptune": NukeNeptune,
         "rds": NukeRds,
         "redshift": NukeRedshift,
         "cloudwatch": NukeCloudwatch,
@@ -70,10 +72,12 @@ def lambda_handler(event, context):
 
     for key, value in _strategy.items():
         if key not in exclude_resources:
-            strategy = value()
-            strategy.nuke(older_than_seconds)
+            for aws_region in aws_regions:
+                strategy = value(region_name=aws_region)
+                strategy.nuke(older_than_seconds)
 
     for key, value in _strategy_with_no_date.items():
         if key not in exclude_resources:
-            strategy = value()
-            strategy.nuke()
+            for aws_region in aws_regions:
+                strategy = value(region_name=aws_region)
+                strategy.nuke()

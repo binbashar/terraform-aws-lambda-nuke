@@ -12,10 +12,14 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 class NukeS3:
     """Abstract s3 nuke in a class."""
 
-    def __init__(self):
+    def __init__(self, region_name=None):
         """Initialize s3 nuke."""
-        self.s3 = boto3.client("s3")
-        self.s3_resource = boto3.resource("s3")
+        if region_name:
+            self.s3 = boto3.client("s3", region_name=region_name)
+            self.s3_resource = boto3.resource("s3", region_name=region_name)
+        else:
+            self.s3 = boto3.client("s3")
+            self.s3_resource = boto3.resource("s3")
 
         try:
             self.s3.list_buckets()
@@ -37,9 +41,12 @@ class NukeS3:
             try:
                 # Delete all objects in bucket
                 bucket = self.s3_resource.Bucket(s3_bucket)
-                for key in bucket.objects.all():
-                    key.delete()
+                bucket.object_versions.delete()
+                bucket.objects.delete()
+            except ClientError as e:
+                logging.error("Unexpected error: %s", e)
 
+            try:
                 # Delete bucket
                 self.s3.delete_bucket(Bucket=s3_bucket)
                 print("Nuke s3 bucket {0}".format(s3_bucket))
