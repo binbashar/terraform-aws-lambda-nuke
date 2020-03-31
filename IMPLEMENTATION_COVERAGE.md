@@ -1,6 +1,7 @@
 
 ## Compute
 
+- ami
 - autoscaling group
 - launch configuration
 - data lifecycle manager policy
@@ -16,6 +17,7 @@
 - elbv2
 - elbv2 target group
 - key pair
+- snapshot
 - spot request
 - spot fleet
 
@@ -51,3 +53,8 @@
 - efs filesystem
 - glacier vault
 - s3 bucket
+
+## Analytic
+
+- emr cluster
+- kafka cluster

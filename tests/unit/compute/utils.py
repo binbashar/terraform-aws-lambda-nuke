@@ -86,3 +86,25 @@ def create_spot(count, region_name):
     client = boto3.client("ec2", region_name=region_name)
 
     client.request_spot_instances(InstanceCount=count)
+
+
+def create_ami(region_name):
+    """Create ami image."""
+    client = boto3.client("ec2", region_name=region_name)
+
+    instance = client.run_instances(
+        ImageId="ami-02df9ea15c1778c9c", MaxCount=1, MinCount=1
+    )
+    client.create_image(
+        InstanceId=instance["Instances"][0]["InstanceId"], Name="nuke-ami"
+    )
+
+
+def create_snapshot(region_name):
+    """Create ec2 snapshot."""
+    client = boto3.client("ec2", region_name=region_name)
+
+    ebs_volume = client.create_volume(
+        AvailabilityZone=region_name + "a", Size=50
+    )
+    client.create_snapshot(VolumeId=ebs_volume["VolumeId"])

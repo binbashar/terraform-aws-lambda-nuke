@@ -53,6 +53,8 @@ resource "aws_iam_role_policy" "nuke_compute" {
                 "ec2:DeleteKeyPair",
                 "ec2:DescribePlacementGroups",
                 "ec2:DeletePlacementGroup",
+                "ec2:DescribeImages",
+                "ec2:DeregisterImage",
                 "dlm:GetLifecyclePolicy",
                 "dlm:GetLifecyclePolicies",
                 "dlm:DeleteLifecyclePolicy",
@@ -199,7 +201,33 @@ resource "aws_iam_role_policy" "nuke_network" {
                 "ec2:DescribeInternetGateways",
                 "ec2:DeleteInternetGateway",
                 "ec2:DescribeEgressOnlyInternetGateways",
-                "ec2:DeleteEgressOnlyInternetGateway"
+                "ec2:DeleteEgressOnlyInternetGateway",
+                "ec2:RevokeSecurityGroupEgress",
+                "ec2:RevokeSecurityGroupIngress"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy" "nuke_analytic" {
+  count = var.custom_iam_role_arn == null ? 1 : 0
+  name  = "${var.name}-nuke-analytic"
+  role  = aws_iam_role.this[0].id
+
+  policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "elasticmapreduce:ListClusters",
+                "elasticmapreduce:TerminateJobFlows",
+                "kafka:ListClusters",
+                "kafka:DeleteCluster"
             ],
             "Effect": "Allow",
             "Resource": "*"
