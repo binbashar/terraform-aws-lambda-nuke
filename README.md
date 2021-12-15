@@ -1,6 +1,5 @@
 # terraform-aws-lambda-nuke
 
-[![Build Status](https://api.travis-ci.com/diodonfrost/terraform-aws-lambda-nuke.svg?branch=master)](https://travis-ci.com/diodonfrost/terraform-aws-lambda-nuke)
 [![CI](https://github.com/diodonfrost/terraform-aws-lambda-nuke/workflows/CI/badge.svg)](https://github.com/diodonfrost/terraform-aws-lambda-nuke/actions)
 
 Terraform module which create lambda which nuke all resources on aws account
@@ -11,7 +10,7 @@ This role was developed using python lib boto3 1.13.34 Backwards compatibility i
 
 ## Terraform versions
 
-For Terraform 0.12 use version v2.* of this module.
+For Terraform 0.15.* use version v2.* of this module.
 
 If you are using Terraform 0.11 you can use versions v1.*.
 
@@ -55,6 +54,7 @@ module "nuke_everything_older_than_7d" {
 | cloudwatch_schedule_expression | The scheduling expression | string | `"cron(0 22 ? * MON-FRI *)"` | yes |
 | exclude_resources | Define the resources that will be not destroyed | string | null | no |
 | older_than | Only destroy resources that were created before a certain period | string | 0d | no |
+| tags | A map of tags to assign to the resources. | map(any) | null | no |
 
 ## Outputs
 
@@ -71,34 +71,6 @@ module "nuke_everything_older_than_7d" {
 | scheduler_log_group_arn | The Amazon Resource Name (ARN) specifying the log group |
 
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
-
-## Tests
-
-This module has been packaged with [awspec](https://github.com/k1LoW/awspec) tests through test kitchen. To run them:
-
-Install kitchen-terraform and awspec:
-
-```shell
-# Install dependencies
-gem install bundler
-bundle install
-```
-
-Launch kitchen tests:
-
-```shell
-# List all tests with kitchen
-kitchen list
-
-# Build, and tests terraform module
-kitchen test
-
-# for development, create environment
-kitchen converge
-
-# Apply awspec tests
-kitchen verify
-```
 
 ## Authors
 

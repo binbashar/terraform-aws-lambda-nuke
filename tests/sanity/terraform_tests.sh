@@ -1,19 +1,16 @@
 #!/bin/bash
+set -e
 
 # Install the Latest version of Terraform
 sudo pip install ansible
-sudo ansible-galaxy install diodonfrost.terraform && sudo ln -s ~/.ansible/roles/diodonfrost.terraform ~/.ansible/roles/ansible-role-terraform
+sudo ansible-galaxy install diodonfrost.terraform
 sudo ansible-pull -U https://github.com/diodonfrost/ansible-role-terraform tests/test.yml -e "terraform_version=${terraform_version}"
 terraform -version
 terraform init
 
 # Test Terraform syntax
-terraform validate \
-  -var "region=${AWS_REGION}" \
-  -var "name=nuke-all" \
-  -var "cloudwatch_schedule_expression=cron(0 4 ? * MON-FRI *)" \
-  -var "exclude_resources=glacier,eip,rds" \
-  -var "older_than=14d"
+export AWS_DEFAULT_REGION=eu-west-1
+terraform validate
 
 # Terraform lint
 terraform fmt -check -diff main.tf

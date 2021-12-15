@@ -5,12 +5,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [2.12.1] - 2021-02-02
+### Bug Fixes
+
+* **log:** grant lambda scheduler to write log ([197387a](https://github.com/diodonfrost/terraform-aws-lambda-nuke/commit/197387a155cd9fef16a73e4189454a802db94001))
+
+## [2.12.0] - 2021-01-01
+### Features
+
+* **terraform:** add tags variable ([19bb8d4](https://github.com/diodonfrost/terraform-aws-lambda-nuke/commit/19bb8d44b58766e1dfdc46096dcc4c5018f9bbc5))
+
+## [2.11.0] - 2020-12-28
+### Performance Improvements
+
+* **python:** optimize aws_regions loop ([204e58a](https://github.com/diodonfrost/terraform-aws-lambda-nuke/commit/204e58a9165ccd89a1efc9b7e8f5d2ba19a93980))
+* **python:** use singleton class to initialize connection to aws ([2395f08](https://github.com/diodonfrost/terraform-aws-lambda-nuke/commit/2395f08197c53d5db70417a4c3ba5750f4cdc751))
+
+## [2.10.1] - 2020-12-20
+### Bug fixes
+* **terraform:** apply terraform fmt ([e10eb9f](https://github.com/diodonfrost/terraform-aws-lambda-nuke/commit/e10eb9f7717aa0f3a47f4cd7d85d067e6b3e8c9b))
+
+### CI
+* **tflint:** update terraform version ([cfc0b4c](https://github.com/diodonfrost/terraform-aws-lambda-nuke/commit/cfc0b4c3ccf8833ff6a3563e57da6823211b838a))
+* **travis-ci:** removing travis-ci pipeline ([706bc0c](https://github.com/diodonfrost/terraform-aws-lambda-nuke/commit/706bc0c545d1c2369f82f91480e2acfcfbfa66bf))
+
+### Tests
+* **sanity:** stop sanity script when error is found ([5c7ed0f](https://github.com/diodonfrost/terraform-aws-lambda-nuke/commit/5c7ed0f66ca1441d8f2713ff3f99e431dbca7287))
+
+## [2.10.0] - 2020-11-08
+### Test
+
+* **poetry:** add python pyproject.toml file ([d59483f](https://github.com/diodonfrost/terraform-aws-lambda-nuke/commit/d59483f119d410282490ddcfeb8292d3c5041f38))
+* **pytest:** set python_path directly in pytest.ini ([70e7b98](https://github.com/diodonfrost/terraform-aws-lambda-nuke/commit/70e7b98d59b4a976701b3c791d489f18906fbf03))
+* **kitchen-ci:** removing kitchen-ci test ([8722edb](https://github.com/diodonfrost/terraform-aws-lambda-nuke/commit/8722edbc417875b5d7b3f4558de6ed89571601e9))
+
+## [2.9.0] - 2020-09-12
 ### Added
 - Python 3.8 support
-- Kafka support
+- Kafka nuke support
 
 ### Changed
 - Restrict iam log group policy
+- Improve security group exceptions
+- Restrict cloudwatch log group policy
+- Pytest: freeze moto version
 
 ## [2.8.0] - 2020-03-07
 ### Added
@@ -166,7 +204,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AWS elbv2 deletion support
 - AWS keypair deletion support
 
-[Unreleased]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.7.1...HEAD
+[Unreleased]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.12.1...HEAD
+[2.12.1]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.12.0...2.12.1
+[2.12.0]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.11.0...2.12.0
+[2.11.0]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.10.1...2.11.0
+[2.10.1]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.10.0...2.10.1
+[2.10.0]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.9.0...2.10.0
+[2.9.0]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.8.0...2.9.0
+[2.8.0]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.7.1...2.8.0
 [2.7.1]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.7.0...2.7.1
 [2.7.0]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.6.0...2.7.0
 [2.6.0]: https://github.com/diodonfrost/terraform-aws-lambda-nuke/compare/2.5.0...2.6.0
